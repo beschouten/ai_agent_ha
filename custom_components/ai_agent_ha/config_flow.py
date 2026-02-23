@@ -218,6 +218,33 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
         dropdown_default = "Custom..." if provider == "alter" else default_model
         available_models = AVAILABLE_MODELS.get(provider, [default_model])
 
+        # For openai_compatible, fetch models from the API endpoint if URL is provided
+        if provider == "openai_compatible" and user_input is not None:
+            url = user_input.get(CONF_OPENAI_COMPATIBLE_URL, "")
+            if url:
+                try:
+                    import aiohttp
+                    api_url = f"{url.rstrip('/')}/v1/models"
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                            if resp.status == 200:
+                                data = await resp.json()
+                                models = data.get("data", [])
+                                model_ids = [m.get("id", "") for m in models if m.get("id")]
+                                if model_ids:
+                                    # Store available models for this session
+                                    self.openai_compatible_models = model_ids
+                                    # Update default model to first available
+                                    dropdown_default = model_ids[0] if model_ids else "Custom..."
+                                    available_models = model_ids + ["Custom..."]
+                                else:
+                                    errors["base"] = "no_models_found"
+                            else:
+                                errors["base"] = "invalid_url"
+                except Exception as e:
+                    _LOGGER.error("Failed to fetch models from %s: %s", api_url, str(e))
+                    errors["base"] = "invalid_url"
+
         if user_input is not None:
             try:
                 # Validate the token
@@ -338,8 +365,12 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
                 ),
             }
 
-            # Add optional model selection
-            schema_dict[vol.Optional(CONF_OPENAI_COMPATIBLE_MODEL)] = TextSelector(
+            # Add model selection - use available models if fetched, otherwise text input
+            model_options = available_models if "available_models" in dir(self) else ["Custom..."]
+            schema_dict[vol.Optional("model", default=dropdown_default)] = SelectSelector(
+                SelectSelectorConfig(options=model_options)
+            )
+            schema_dict[vol.Optional("custom_model")] = TextSelector(
                 TextSelectorConfig(type="text")
             )
 
