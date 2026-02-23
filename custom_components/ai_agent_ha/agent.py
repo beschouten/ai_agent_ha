@@ -2766,6 +2766,11 @@ Then restart Home Assistant to see your new dashboard in the sidebar."""
                     "model": models_config.get("local", ""),
                     "client_class": LocalClient,
                 },
+                "openai_compatible": {
+                    "token_key": "openai_compatible_url",
+                    "model": models_config.get("openai_compatible", ""),
+                    "client_class": OpenAICompatibleClient,
+                },
             }
 
             # Validate provider and get configuration
