@@ -15,6 +15,11 @@ CONF_ZAI_TOKEN = "zai_token"  # nosec B105
 CONF_LOCAL_URL = "local_url"
 CONF_LOCAL_MODEL = "local_model"
 
+# OpenAI Compatible Endpoint configuration keys
+CONF_OPENAI_COMPATIBLE_URL = "openai_compatible_url"
+CONF_OPENAI_COMPATIBLE_MODEL = "openai_compatible_model"
+CONF_OPENAI_COMPATIBLE_API_KEY = "openai_compatible_api_key"  # nosec B105
+
 # Available AI providers
 AI_PROVIDERS = [
     "llama",
@@ -25,6 +30,7 @@ AI_PROVIDERS = [
     "alter",
     "zai",
     "local",
+    "openai_compatible",
 ]
 
 # AI Provider constants

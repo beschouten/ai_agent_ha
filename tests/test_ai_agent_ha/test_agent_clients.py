@@ -159,3 +159,59 @@ class TestLlamaClient:
             assert client.model == "Llama-4-Maverick-17B-128E-Instruct-FP8"
         except ImportError:
             pytest.skip("LlamaClient not available")
+
+
+class TestOpenAICompatibleClient:
+    """Test OpenAI Compatible Endpoint client functionality."""
+
+    def test_openai_compatible_client_initialization(self):
+        """Test OpenAICompatibleClient initialization."""
+        try:
+            from custom_components.ai_agent_ha.agent import OpenAICompatibleClient
+
+            # Test with all parameters
+            client = OpenAICompatibleClient(
+                "http://localhost:8080", "test-model", "test-api-key"
+            )
+            assert client.url == "http://localhost:8080"
+            assert client.model == "test-model"
+            assert client.api_key == "test-api-key"
+            assert client.api_url == "http://localhost:8080/v1/chat/completions"
+
+            # Test without model
+            client_no_model = OpenAICompatibleClient(
+                "http://localhost:8080", "", "test-api-key"
+            )
+            assert client_no_model.url == "http://localhost:8080"
+            assert client_no_model.model == ""
+
+            # Test without API key
+            client_no_key = OpenAICompatibleClient("http://localhost:8080", "test-model")
+            assert client_no_key.url == "http://localhost:8080"
+            assert client_no_key.model == "test-model"
+            assert client_no_key.api_key == ""
+
+        except ImportError:
+            pytest.skip("OpenAICompatibleClient not available")
+
+    def test_openai_compatible_client_url_formatting(self):
+        """Test OpenAICompatibleClient URL formatting."""
+        try:
+            from custom_components.ai_agent_ha.agent import OpenAICompatibleClient
+
+            # Test URL with trailing slash
+            client = OpenAICompatibleClient(
+                "http://localhost:8080/", "test-model"
+            )
+            assert client.url == "http://localhost:8080"
+            assert client.api_url == "http://localhost:8080/v1/chat/completions"
+
+            # Test URL without trailing slash
+            client = OpenAICompatibleClient(
+                "http://localhost:8080", "test-model"
+            )
+            assert client.url == "http://localhost:8080"
+            assert client.api_url == "http://localhost:8080/v1/chat/completions"
+
+        except ImportError:
+            pytest.skip("OpenAICompatibleClient not available")

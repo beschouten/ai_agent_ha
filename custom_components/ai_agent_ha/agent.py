@@ -445,6 +445,120 @@ class LocalClient(BaseAIClient):
                     raise Exception(f"Failed to parse local API response: {str(e)}")
 
 
+class OpenAICompatibleClient(BaseAIClient):
+    """Client for OpenAI-compatible APIs (llama.cpp, vLLM, LM Studio, etc.)."""
+
+    def __init__(self, url: str, model: str = "", api_key: str = ""):
+        """Initialize the OpenAI-compatible client.
+        
+        Args:
+            url: The base URL of the OpenAI-compatible API (e.g., http://localhost:8080)
+            model: The model name to use (optional, some APIs require it)
+            api_key: Optional API key for authentication
+        """
+        self.url = url.rstrip("/")
+        self.model = model
+        self.api_key = api_key
+        self.api_url = f"{self.url}/v1/chat/completions"
+
+    async def get_response(self, messages, **kwargs):
+        """Make a request to the OpenAI-compatible API.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            **kwargs: Additional parameters (temperature, max_tokens, etc.)
+            
+        Returns:
+            The AI response text
+        """
+        _LOGGER.debug(
+            "Making request to OpenAI-compatible API at: %s",
+            self.api_url,
+        )
+
+        headers = {
+            "Content-Type": "application/json",
+        }
+
+        # Add API key if provided
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        # Build payload with OpenAI-compatible format
+        payload = {
+            "messages": messages,
+            "model": self.model if self.model else "",
+            "temperature": kwargs.get("temperature", 0.7),
+            "top_p": kwargs.get("top_p", 0.9),
+        }
+
+        # Remove empty model field if not specified
+        if not payload["model"]:
+            del payload["model"]
+
+        _LOGGER.debug(
+            "OpenAI-compatible API request payload: %s",
+            json.dumps(sanitize_for_logging(payload), indent=2),
+        )
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                self.api_url,
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=300),
+            ) as resp:
+                response_text = await resp.text()
+                _LOGGER.debug(
+                    "OpenAI-compatible API response status: %d", resp.status
+                )
+                _LOGGER.debug(
+                    "OpenAI-compatible API response: %s", response_text[:500]
+                )
+
+                if resp.status != 200:
+                    _LOGGER.error(
+                        "OpenAI-compatible API error %d: %s", resp.status, response_text
+                    )
+                    raise Exception(
+                        f"OpenAI-compatible API error {resp.status}: {response_text}"
+                    )
+
+                try:
+                    data = json.loads(response_text)
+                except json.JSONDecodeError as e:
+                    _LOGGER.error(
+                        "Failed to parse OpenAI-compatible response as JSON: %s",
+                        str(e),
+                    )
+                    raise Exception(
+                        f"Invalid JSON response from OpenAI-compatible API: {response_text[:200]}"
+                    )
+
+                # Extract text from OpenAI-compatible response
+                choices = data.get("choices", [])
+                if choices and "message" in choices[0]:
+                    content = choices[0]["message"].get("content", "")
+                    if not content:
+                        _LOGGER.warning(
+                            "OpenAI-compatible API returned empty content in message"
+                        )
+                        _LOGGER.debug(
+                            "Full OpenAI-compatible response: %s",
+                            json.dumps(data, indent=2),
+                        )
+                    return content
+                else:
+                    _LOGGER.warning(
+                        "OpenAI-compatible response missing expected structure"
+                    )
+                    _LOGGER.debug(
+                        "Full OpenAI-compatible response: %s",
+                        json.dumps(data, indent=2),
+                    )
+                    return str(data)
+
+
 class LlamaClient(BaseAIClient):
     def __init__(self, token, model="Llama-4-Maverick-17B-128E-Instruct-FP8"):
         self.token = token
@@ -1194,6 +1308,14 @@ class AiAgentHaAgent:
                 _LOGGER.error("Missing local_url for local provider")
                 raise Exception("Missing local_url configuration for local provider")
             self.ai_client = LocalClient(url, model)
+        elif provider == "openai_compatible":
+            model = models_config.get("openai_compatible", "")
+            url = config.get("openai_compatible_url")
+            api_key = config.get("openai_compatible_api_key", "")
+            if not url:
+                _LOGGER.error("Missing openai_compatible_url for openai_compatible provider")
+                raise Exception("Missing openai_compatible_url configuration for openai_compatible provider")
+            self.ai_client = OpenAICompatibleClient(url, model, api_key)
         else:  # default to llama if somehow specified
             model = models_config.get("llama", "Llama-4-Maverick-17B-128E-Instruct-FP8")
             self.ai_client = LlamaClient(config.get("llama_token"), model)
@@ -1222,6 +1344,8 @@ class AiAgentHaAgent:
             token = self.config.get("zai_token")
         elif provider == "local":
             token = self.config.get("local_url")
+        elif provider == "openai_compatible":
+            token = self.config.get("openai_compatible_url")
         else:
             token = self.config.get("llama_token")
 
@@ -1229,7 +1353,7 @@ class AiAgentHaAgent:
             return False
 
         # For local provider, validate URL format
-        if provider == "local":
+        if provider in ("local", "openai_compatible"):
             return bool(token.startswith(("http://", "https://")))
 
         # Add more specific validation based on your API key format

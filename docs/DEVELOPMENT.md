@@ -9,7 +9,7 @@ This guide provides information about the development workflow and technical asp
 - Python 3.12+
 - Git
 - Home Assistant development environment
-- API keys for one or more supported AI providers (OpenAI, Google Gemini, Anthropic, OpenRouter, Alter, z.ai, Llama)
+- API keys for one or more supported AI providers (OpenAI, Google Gemini, Anthropic, OpenRouter, Alter, z.ai, Llama, or OpenAI-compatible local endpoints like llama.cpp, vLLM, LM Studio)
 
 ### Setting Up a Development Environment
 
@@ -120,6 +120,34 @@ This guide provides information about the development workflow and technical asp
 4. **Update documentation**:
    - Add provider setup instructions to README.md
    - Update configuration examples
+
+### OpenAI-Compatible Endpoint (llama.cpp, vLLM, LM Studio)
+
+This integration supports any OpenAI-compatible API endpoint, including:
+
+- **llama.cpp**: Run local LLMs with OpenAI-compatible API
+- **vLLM**: High-performance LLM serving
+- **LM Studio**: Local LLM interface with built-in server
+
+**Configuration:**
+
+1. In Home Assistant, go to Settings > Devices & Services > Add Integration
+2. Select "OpenAI Compatible Endpoint (Local)"
+3. Enter the API URL (e.g., `http://localhost:8080` for llama.cpp)
+4. Optionally specify a model name
+5. Optionally provide an API key if your endpoint requires authentication
+
+**Example Setup with llama.cpp:**
+
+1. Install and run llama.cpp with the server enabled:
+   ```bash
+   ./server -m /path/to/model.gguf --host 0.0.0.0 --port 8080
+   ```
+
+2. Configure the integration with:
+   - URL: `http://localhost:8080`
+   - Model: (optional, defaults to server's default model)
+   - API Key: (optional, if authentication is enabled)
 
 ### Frontend Development
 

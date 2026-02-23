@@ -15,7 +15,14 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
 )
 
-from .const import CONF_LOCAL_MODEL, CONF_LOCAL_URL, DOMAIN
+from .const import (
+    CONF_LOCAL_MODEL,
+    CONF_LOCAL_URL,
+    CONF_OPENAI_COMPATIBLE_API_KEY,
+    CONF_OPENAI_COMPATIBLE_MODEL,
+    CONF_OPENAI_COMPATIBLE_URL,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +35,7 @@ PROVIDERS = {
     "alter": "Alter",
     "zai": "z.ai",
     "local": "Local Model",
+    "openai_compatible": "OpenAI Compatible Endpoint (Local)",
 }
 
 TOKEN_FIELD_NAMES = {
@@ -40,6 +48,7 @@ TOKEN_FIELD_NAMES = {
     "zai": "zai_token",
     "zai_endpoint": "zai_endpoint",
     "local": CONF_LOCAL_URL,  # For local models, we use URL instead of token
+    "openai_compatible": CONF_OPENAI_COMPATIBLE_URL,
 }
 
 TOKEN_LABELS = {
@@ -52,6 +61,7 @@ TOKEN_LABELS = {
     "zai": "z.ai API Key",
     "zai_endpoint": "z.ai API Endpoint Type",
     "local": "Local API URL (e.g., http://localhost:11434/api/generate)",
+    "openai_compatible": "OpenAI-Compatible API URL (e.g., http://localhost:8080)",
 }
 
 DEFAULT_MODELS = {
@@ -63,6 +73,7 @@ DEFAULT_MODELS = {
     "alter": "",  # User enters custom model
     "zai": "glm-4.7",  # Z.ai's latest flagship model
     "local": "llama3.2",  # Updated to use llama3.2 as default
+    "openai_compatible": "",  # Model name is optional for OpenAI-compatible APIs
 }
 
 AVAILABLE_MODELS = {
@@ -315,6 +326,34 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
                 errors=errors,
                 description_placeholders={
                     "token_label": "Local API URL",
+                    "provider": PROVIDERS[provider],
+                },
+            )
+
+        if provider == "openai_compatible":
+            # For openai_compatible provider, we need URL, optional model, and optional API key
+            schema_dict = {
+                vol.Required(CONF_OPENAI_COMPATIBLE_URL): TextSelector(
+                    TextSelectorConfig(type="text")
+                ),
+            }
+
+            # Add optional model selection
+            schema_dict[vol.Optional(CONF_OPENAI_COMPATIBLE_MODEL)] = TextSelector(
+                TextSelectorConfig(type="text")
+            )
+
+            # Add optional API key
+            schema_dict[vol.Optional(CONF_OPENAI_COMPATIBLE_API_KEY)] = TextSelector(
+                TextSelectorConfig(type="password")
+            )
+
+            return self.async_show_form(
+                step_id="configure",
+                data_schema=vol.Schema(schema_dict),
+                errors=errors,
+                description_placeholders={
+                    "token_label": "OpenAI-Compatible API URL",
                     "provider": PROVIDERS[provider],
                 },
             )
