@@ -2820,6 +2820,16 @@ Then restart Home Assistant to see your new dashboard in the sidebar."""
                     _LOGGER.debug(
                         f"Initialized {selected_provider} client with model {provider_settings['model']}"
                     )
+                elif selected_provider == "openai_compatible":
+                    # OpenAICompatibleClient takes (url, model, api_key)
+                    self.ai_client = provider_settings["client_class"](
+                        url=token,
+                        model=provider_settings["model"],
+                        api_key=config.get("openai_compatible_api_key", ""),
+                    )
+                    _LOGGER.debug(
+                        f"Initialized {selected_provider} client with model {provider_settings['model']}"
+                    )
                 else:
                     # Other clients take (token, model)
                     self.ai_client = provider_settings["client_class"](

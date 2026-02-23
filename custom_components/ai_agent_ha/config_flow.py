@@ -224,13 +224,20 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
             if url:
                 try:
                     import aiohttp
-                    api_url = f"{url.rstrip('/')}/v1/models"
+                    # Handle URL with or without /v1 suffix
+                    base_url = url.rstrip("/")
+                    if base_url.endswith("/v1"):
+                        base_url = base_url[:-3]
+                    api_url = f"{base_url}/v1/models"
+                    _LOGGER.debug("Fetching models from: %s", api_url)
                     async with aiohttp.ClientSession() as session:
                         async with session.get(api_url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                            _LOGGER.debug("API response status: %d", resp.status)
                             if resp.status == 200:
                                 data = await resp.json()
                                 models = data.get("data", [])
                                 model_ids = [m.get("id", "") for m in models if m.get("id")]
+                                _LOGGER.debug("Found models: %s", model_ids)
                                 if model_ids:
                                     # Store available models for this session
                                     self.openai_compatible_models = model_ids
@@ -239,8 +246,10 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
                                     available_models = model_ids + ["Custom..."]
                                 else:
                                     errors["base"] = "no_models_found"
+                                    _LOGGER.warning("No models found in API response")
                             else:
                                 errors["base"] = "invalid_url"
+                                _LOGGER.warning("API returned status %d", resp.status)
                 except Exception as e:
                     _LOGGER.error("Failed to fetch models from %s: %s", api_url, str(e))
                     errors["base"] = "invalid_url"
@@ -360,22 +369,22 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
         if provider == "openai_compatible":
             # For openai_compatible provider, we need URL, optional model, and optional API key
             schema_dict = {
-                vol.Required(CONF_OPENAI_COMPATIBLE_URL): TextSelector(
+                vol.Required(CONF_OPENAI_COMPATIBLE_URL, description={"suggested_value": "http://localhost:8080"}): TextSelector(
                     TextSelectorConfig(type="text")
                 ),
             }
 
             # Add model selection - use available models if fetched, otherwise text input
             model_options = available_models if "available_models" in dir(self) else ["Custom..."]
-            schema_dict[vol.Optional("model", default=dropdown_default)] = SelectSelector(
+            schema_dict[vol.Optional("model", default=dropdown_default, description={"suggested_value": "Qwen3-Coder-Next"})] = SelectSelector(
                 SelectSelectorConfig(options=model_options)
             )
-            schema_dict[vol.Optional("custom_model")] = TextSelector(
+            schema_dict[vol.Optional("custom_model", description={"suggested_value": "Custom model name"})] = TextSelector(
                 TextSelectorConfig(type="text")
             )
 
             # Add optional API key
-            schema_dict[vol.Optional(CONF_OPENAI_COMPATIBLE_API_KEY)] = TextSelector(
+            schema_dict[vol.Optional(CONF_OPENAI_COMPATIBLE_API_KEY, description={"suggested_value": ""})] = TextSelector(
                 TextSelectorConfig(type="password")
             )
 
@@ -384,7 +393,7 @@ class AiAgentHaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ig
                 data_schema=vol.Schema(schema_dict),
                 errors=errors,
                 description_placeholders={
-                    "token_label": "OpenAI-Compatible API URL",
+                    "token_label": "OpenAI-Compatible API URL (e.g., http://localhost:8080)",
                     "provider": PROVIDERS[provider],
                 },
             )
