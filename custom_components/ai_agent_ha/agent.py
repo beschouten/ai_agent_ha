@@ -456,7 +456,11 @@ class OpenAICompatibleClient(BaseAIClient):
             model: The model name to use (optional, some APIs require it)
             api_key: Optional API key for authentication
         """
-        self.url = url.rstrip("/")
+        # Handle URL with or without /v1 suffix
+        base_url = url.rstrip("/")
+        if base_url.endswith("/v1"):
+            base_url = base_url[:-3]
+        self.url = base_url
         self.model = model
         self.api_key = api_key
         self.api_url = f"{self.url}/v1/chat/completions"
